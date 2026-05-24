@@ -42,3 +42,31 @@ func GetMovies() gin.HandlerFunc {
 	}
 
 }
+
+// Получение одного определённого фильма по его уникальному идентификатору
+func GetMovie() gin.HandlerFunc {
+	return func(c *gin.Context) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second * 100)
+			defer cancel()
+
+			movieID := c.Param("imdb_id") // Берём идентификатор фильма из тело-запроса
+
+			if movieID == "" {
+				c.JSON(http.StatusNotFound, gin.H{"error":"movie ID required"})
+				return 
+			}
+
+			var movie models.Movie
+
+			// Находим фильм с таким идентификатором и декодируем его
+			err := movieCollection.FindOne(ctx, bson.M{"imdb_id": movieID}).Decode(&movie)
+
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error":"movie not found"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"movie":movie})
+
+			
+	}}

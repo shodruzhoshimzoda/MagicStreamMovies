@@ -7,28 +7,20 @@ import (
 	controller "github.com/shodruzxoshimzoda/MagicStreamMovies/Server/MagicStreamMoviesServer/controllers"
 )
 
-
-
 func main() {
 
-
-	router := gin.Default()		// Создание сервера
-
+	router := gin.Default() // Создание сервера
 
 	// Регистрирруем обработчики
 	router.GET("/hello", func(c *gin.Context) {
 		c.String(200, "Hello, World!")
 	})
 
-	router.GET("/movies",controller.GetMovies())
+	router.GET("/movies", controller.GetMovies())
 
-	if err := router.Run(":8080");err != nil {
+	if err := router.Run(":8080"); err != nil {
 		fmt.Println("Failed to run server: ", err)
-	
+
 	}
-
-
-
-
 
 }

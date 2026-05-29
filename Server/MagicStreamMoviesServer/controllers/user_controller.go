@@ -9,6 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/shodruzxoshimzoda/MagicStreamMovies/Server/MagicStreamMoviesServer/database"
 	model "github.com/shodruzxoshimzoda/MagicStreamMovies/Server/MagicStreamMoviesServer/models"
+	"github.com/shodruzxoshimzoda/MagicStreamMovies/Server/MagicStreamMoviesServer/utils"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"golang.org/x/crypto/bcrypt"
@@ -89,9 +90,72 @@ func RegisterUser() gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, result)
 
-		
+	}
+}
+
+// Функция для логирования пользователья
+func LogginUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var userLoggin model.UserLoggin			// Создаём объект на основе структуры для логгирования	
+
+		// Декодируем значения полученной из тело запроса и присвавываем его в созданной структуре
+		if err := c.ShouldBind(&userLoggin); err != nil {		
+			c.JSON(http.StatusBadRequest, gin.H{"error":"invalid input data"})
+			return 
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100 *time.Second)
+		defer cancel()
+
+		var foundUser model.User
+
+		// Находим пользователья с таким же email, если нашли то декодируем наше значения в созданной структуре
+		err := userCollection.FindOne(ctx, bson.M{"email":userLoggin.Email}).Decode(&foundUser)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error":"Invalid email or password"})
+			return
+		}
+
+		// Сравнения паролей
+		err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(userLoggin.Password))
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error":"Invalid email or password"})
+			return
+		}
+
+		// создаём токен доступа
+		 token, refreshToken, err  := utils.GenerateAllToken(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.Role, foundUser.UserId)
+
+		 if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":"Failed to generate token",
+				})
+				return 
+			}
+
+		err = utils.UpdateAllTokens(foundUser.UserId, token, refreshToken)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error":"failed to update http token"})
+			return 
+		}
+
+		c.JSON(http.StatusOK, model.UserResponse{
+			UserID: foundUser.UserId,
+			Email: foundUser.Email,
+			FirstName: foundUser.FirstName,
+			LastName: foundUser.LastName,
+			Role: foundUser.Role,
+			Token: token,
+			RefeshToken: refreshToken,
+			FavouriteGenres: foundUser.FavouriteGenres,
+		},
+		)
 
 		
-
+		
+		
+		
+		
 	}
 }

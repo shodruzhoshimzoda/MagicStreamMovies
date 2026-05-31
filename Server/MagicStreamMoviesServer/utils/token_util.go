@@ -2,9 +2,11 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/shodruzxoshimzoda/MagicStreamMovies/Server/MagicStreamMoviesServer/database"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -105,4 +107,46 @@ func UpdateAllTokens(userId, token, refreshToken string) (err error) {
 	}
 
 	return nil // Операция прошла успешно
+}
+
+
+// Функция для получения токена доступа
+func GetAccessToken(c *gin.Context) (string, error) {
+	authHeader := c.Request.Header.Get("Authorization")
+
+	if authHeader == ""{
+		return "", errors.New("Authorization header is required")
+	}
+
+	tokenString := authHeader[len("Bearer "): ]
+	if tokenString == "" {
+		return "",errors.New("Bearer token is required")
+	}
+
+	return tokenString, nil
+	
+	
+}
+
+// Функция для валидации токена
+func ValidateToken(tokenString string) (*SignedDetails, error) {
+	claims := &SignedDetails{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SECRET_KEY), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, err
+	}
+
+	if claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, errors.New("token has expired")
+	}
+
+	return claims, nil
+
 }

@@ -7,40 +7,38 @@ import (
 	"github.com/shodruzxoshimzoda/MagicStreamMovies/Server/MagicStreamMoviesServer/utils"
 )
 
-
 // Мидлварь для авторизации пользоватл
 func AuthMiddlware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		// 1. Пытаемся достать токен
-		// 
+		//
 		token, err := utils.GetAccessToken(c)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error":err.Error()})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			c.Abort()
-			return 
+			return
 		}
 
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error":"No token provided"})
-			c.Abort() 
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No token provided"})
+			c.Abort()
 
-			return 
+			return
 		}
 		// 2. Проверяем подпись и срок годности токена
 		claims, err := utils.ValidateToken(token)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error":"Invalid token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
-			return 	
+			return
 		}
 
 		// 3. Записываем данные в контекст для будущих хендлеров
-		c.Set("userId",claims.UserId)
-		c.Set("role",claims.Role)
+		c.Set("userID", claims.UserId)
+		c.Set("role", claims.Role)
 
 		c.Next()
 	}
 }
-

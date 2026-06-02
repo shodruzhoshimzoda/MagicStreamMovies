@@ -9,6 +9,7 @@ import (
 // SetupProtectedRoutes настраивает маршруты, требующие авторизации.
 func SetupProtectedRoutes(router *gin.Engine) {
 	// Подключаем мидлварь AuthMiddlware ко всем роутам, объявленным ниже.
+
 	// Каждый запрос к этим эндпоинтам сначала пройдет проверку токена.
 	router.Use(middleware.AuthMiddlware())
 	
@@ -17,5 +18,8 @@ func SetupProtectedRoutes(router *gin.Engine) {
 	
 	// Регистрируем POST-маршрут для добавления нового фильма в систему.
 	router.POST("/addmovie", controllers.AddMovie())
+
+	router.GET("recommendedmovies", controllers.GetRecomendedMovies())
+	router.PATCH("/updatereview/:imdb_id", controllers.AdminReviewUpdate())
 	
 }

@@ -109,23 +109,21 @@ func UpdateAllTokens(userId, token, refreshToken string) (err error) {
 	return nil // Операция прошла успешно
 }
 
-
 // Функция для получения токена доступа
 func GetAccessToken(c *gin.Context) (string, error) {
 	authHeader := c.Request.Header.Get("Authorization")
 
-	if authHeader == ""{
+	if authHeader == "" {
 		return "", errors.New("Authorization header is required")
 	}
 
-	tokenString := authHeader[len("Bearer "): ]
+	tokenString := authHeader[len("Bearer "):]
 	if tokenString == "" {
-		return "",errors.New("Bearer token is required")
+		return "", errors.New("Bearer token is required")
 	}
 
 	return tokenString, nil
-	
-	
+
 }
 
 // Функция для валидации токена
@@ -149,4 +147,23 @@ func ValidateToken(tokenString string) (*SignedDetails, error) {
 
 	return claims, nil
 
+}
+
+// Функция для получения id пользователья из контекста
+func GetUserIdFromConetext(c *gin.Context) (string, error) {
+	userID, exist := c.Get("userID")
+
+	if !exist {
+		return "", errors.New("userID does not exist in context")
+	}
+
+	id, ok := userID.(string)
+
+	if !ok {
+		return "", errors.New("unable to retrieve userID")
+	}
+
+
+	return id, nil
+		
 }

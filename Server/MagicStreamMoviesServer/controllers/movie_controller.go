@@ -122,7 +122,19 @@ func AddMovie() gin.HandlerFunc {
 // Функция для обновления комментария админа н
 func AdminReviewUpdate() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		movieID := c.Param("imdb_id")		// получаем идентификатор фильма из контекста
+		role, err := utils.GetUserRoleFromConetext(c)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Role not found in context"})
+			return
+		}
+
+		if role != "ADMIN" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User must be part of ADMIN role"})
+			return
+		}
+
+		movieID := c.Param("imdb_id") // получаем идентификатор фильма из контекста
 
 		if movieID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie ID required"})
@@ -140,11 +152,10 @@ func AdminReviewUpdate() gin.HandlerFunc {
 			AdminReview string `json:"admin_review"`
 		}
 
-		if err := c.ShouldBind(&req); err != nil {		// присваиваем полученный комментарий по фильму в req
+		if err := c.ShouldBind(&req); err != nil { // присваиваем полученный комментарий по фильму в req
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
 			return
 		}
-
 
 		// получаем ответ от ИИ а также его рейтинг
 		sentiment, rankVal, err := GetReviewRanking(req.AdminReview)
@@ -172,7 +183,7 @@ func AdminReviewUpdate() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		result, err := movieCollection.UpdateOne(ctx, filter, update) // Обновления 
+		result, err := movieCollection.UpdateOne(ctx, filter, update) // Обновления
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating movie"})
 			return
@@ -186,14 +197,14 @@ func AdminReviewUpdate() gin.HandlerFunc {
 		resp.RankingName = sentiment
 		resp.AdminReview = req.AdminReview
 
-		c.JSON(http.StatusOK, resp)		// Возвращаем ответ от ИИ 
+		c.JSON(http.StatusOK, resp) // Возвращаем ответ от ИИ
 
 	}
 }
 
 // Функция для получения оценки от ИИ а также его рейтинг
 func GetReviewRanking(adminReview string) (string, int, error) {
-	rankings, err := GetRankings()	// Получаем все комментарии
+	rankings, err := GetRankings() // Получаем все комментарии
 
 	if err != nil {
 		return "", 0, err
@@ -207,13 +218,13 @@ func GetReviewRanking(adminReview string) (string, int, error) {
 		}
 	}
 
-	sentimentDelimeted = strings.Trim(sentimentDelimeted, ",")   // чистим лишные запятые с лев и справа
+	sentimentDelimeted = strings.Trim(sentimentDelimeted, ",") // чистим лишные запятые с лев и справа
 
 	err = godotenv.Load(".env")
 	if err != nil {
 		log.Println("Error: .env file not found. ")
 	}
-	openAiKey := os.Getenv("AI_KEY")		// Получаем API ключ для подключения к AI
+	openAiKey := os.Getenv("AI_KEY") // Получаем API ключ для подключения к AI
 	if openAiKey == "" {
 		return "", 0, errors.New("could not read  AI_KEY")
 	}
@@ -230,13 +241,13 @@ func GetReviewRanking(adminReview string) (string, int, error) {
 		return "", 0, err
 	}
 
-	base_prompt_template := os.Getenv("BASE_PROMT_TEMPLATE")  // промт для ИИ
+	base_prompt_template := os.Getenv("BASE_PROMT_TEMPLATE") // промт для ИИ
 	if base_prompt_template == "" {
 		return "", 0, errors.New("could not read  BASE_PROMT_TEMPLATE")
 	}
 
 	// вместо плейсхолдера {rankings}. Цифра 1 означает, что мы заменяем только первое совпадение.
-	base_prompt := strings.Replace(base_prompt_template, "{rankings}", sentimentDelimeted, 1)		
+	base_prompt := strings.Replace(base_prompt_template, "{rankings}", sentimentDelimeted, 1)
 	respose, err := llm.Call(context.Background(), base_prompt+adminReview)
 
 	if err != nil {
@@ -278,21 +289,20 @@ func GetRankings() ([]models.Ranking, error) {
 
 }
 
-
 // Функция для получение рекомендованных фильмов
 func GetRecomendedMovies() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, err := utils.GetUserIdFromConetext(c)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error":"User ID not found in context", "details":err.Error()})
-			return 
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found in context", "details": err.Error()})
+			return
 		}
 
 		favourite_genrese, err := GetUserFavouriteGenres(userID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error":err.Error()})
-			return 
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
 		err = godotenv.Load(".env")
@@ -303,26 +313,25 @@ func GetRecomendedMovies() gin.HandlerFunc {
 		// Ограничение для рекомендованных фильмов сотавляет 5 штук по умолчанию
 		var recommendedMoviesLimitVal int64 = 5
 
-		
 		recommendedMoviesLimitValStr := os.Getenv("RECOMENDED_MOVIES_LIMIT")
 
 		if recommendedMoviesLimitValStr != "" {
-			recommendedMoviesLimitVal, err  = strconv.ParseInt(recommendedMoviesLimitValStr, 10, 64)
+			recommendedMoviesLimitVal, err = strconv.ParseInt(recommendedMoviesLimitValStr, 10, 64)
 		}
 
 		// Фильтрация фильмов: берём те фильмы которые имеют отношение  к предпочмтаемым жанрам
 		findOpts := options.Find()
-		findOpts.SetSort(bson.D{{Key: "ranking.ranking_value",Value:1}})
+		findOpts.SetSort(bson.D{{Key: "ranking.ranking_value", Value: 1}})
 		findOpts.SetLimit(recommendedMoviesLimitVal)
-		filter := bson.M{"genre.genre_name":bson.M{"$in":favourite_genrese}}
-	
+		filter := bson.M{"genre.genre_name": bson.M{"$in": favourite_genrese}}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		cursor, err := movieCollection.Find(ctx, filter, findOpts)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error":"Error fetching recomended movies"})
-			return 
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching recomended movies"})
+			return
 		}
 
 		defer cursor.Close(ctx)
@@ -330,33 +339,33 @@ func GetRecomendedMovies() gin.HandlerFunc {
 		var recommendedMovies []models.Movie
 
 		if err := cursor.All(ctx, &recommendedMovies); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error":err.Error()})
-			return 
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
-		c.JSON(http.StatusOK, recommendedMovies)  // Возвращаем список рекомендованныз фильмов
-		
-	}	
+		c.JSON(http.StatusOK, recommendedMovies) // Возвращаем список рекомендованныз фильмов
+
+	}
 }
 
 // Функция для получени предпочитаемыз жанров фильма
 func GetUserFavouriteGenres(userID string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
-	filter := bson.M{  // документ, где поле user_id совпадает с переданным userID
-		"user_id":userID, 
+	filter := bson.M{ // документ, где поле user_id совпадает с переданным userID
+		"user_id": userID,
 	}
 
-	projection := bson.M{  // Вернуть только массив favourite_genres (1), а системное поле _id — исключит (0)
-		"favourite_genres.genre_name":1,
-		"_id": 0,
+	projection := bson.M{ // Вернуть только массив favourite_genres (1), а системное поле _id — исключит (0)
+		"favourite_genres.genre_name": 1,
+		"_id":                         0,
 	}
 
-	opts := options.FindOne().SetProjection( projection)
+	opts := options.FindOne().SetProjection(projection)
 	var result bson.M
 
-	err := userCollection.FindOne(ctx, filter, opts).Decode(&result) 
+	err := userCollection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return []string{}, nil
@@ -379,13 +388,12 @@ func GetUserFavouriteGenres(userID string) ([]string, error) {
 					if name, ok := elem.Value.(string); ok {
 						genresName = append(genresName, name)
 					}
-					
+
 				}
 			}
 		}
 	}
-	
 
 	return genresName, nil
-	
+
 }

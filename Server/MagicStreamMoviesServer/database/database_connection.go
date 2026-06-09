@@ -34,9 +34,8 @@ func DBConnect() *mongo.Client {
 
 }
 
-var Client *mongo.Client = DBConnect()
 
-func OpenCollection(collectionName string) *mongo.Collection {
+func OpenCollection(collectionName string, client *mongo.Client) *mongo.Collection {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Fatal("Error downloading .env file: ", err)
 
@@ -44,7 +43,7 @@ func OpenCollection(collectionName string) *mongo.Collection {
 
 	database := os.Getenv("DATABASE_NAME") // Название базы данных
 	fmt.Println("DATABASE_NAME: ", database)
-	collection := Client.Database(database).Collection(collectionName) // Загрузка коллекций
+	collection := client.Database(database).Collection(collectionName) // Загрузка коллекций
 
 	if collection == nil {
 		return nil

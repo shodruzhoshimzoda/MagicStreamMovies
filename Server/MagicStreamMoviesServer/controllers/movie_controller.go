@@ -24,17 +24,17 @@ import (
 )
 
 // Берём коллекцию фильмов (таблицу)
-var movieCollection *mongo.Collection = database.OpenCollection("movies")
 var validate = validator.New()
-var rankingCollection *mongo.Collection = database.OpenCollection("rankings")
 
 //  Создаём структуру валидатора
 
 // Возвращает список фильмов
-func GetMovies() gin.HandlerFunc {
+func GetMovies(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
+
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 
 		var movies []models.Movie
 
@@ -59,10 +59,12 @@ func GetMovies() gin.HandlerFunc {
 }
 
 // Получение одного определённого фильма по его уникальному идентификатору
-func GetMovie() gin.HandlerFunc {
+func GetMovie(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*100)
+		ctx, cancel := context.WithTimeout(c, time.Second*100)
 		defer cancel()
+
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 
 		movieID := c.Param("imdb_id") // Берём идентификатор фильма из тело-запроса
 
@@ -87,9 +89,9 @@ func GetMovie() gin.HandlerFunc {
 }
 
 // Добавление фильмов
-func AddMovie() gin.HandlerFunc {
+func AddMovie(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
 		var movie models.Movie
@@ -105,7 +107,7 @@ func AddMovie() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "validation failed", "details": err.Error()})
 			return
 		}
-
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 		// Добавляем фильм в нашу структуру
 		result, err := movieCollection.InsertOne(ctx, movie)
 
@@ -120,7 +122,7 @@ func AddMovie() gin.HandlerFunc {
 }
 
 // Функция для обновления комментария админа н
-func AdminReviewUpdate() gin.HandlerFunc {
+func AdminReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, err := utils.GetUserRoleFromConetext(c)
 
@@ -158,7 +160,7 @@ func AdminReviewUpdate() gin.HandlerFunc {
 		}
 
 		// получаем ответ от ИИ а также его рейтинг
-		sentiment, rankVal, err := GetReviewRanking(req.AdminReview)
+		sentiment, rankVal, err := GetReviewRanking(req.AdminReview, client, c)
 		if err != nil {
 			// Добавляем поле details, которое покажет точную причину
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -180,9 +182,9 @@ func AdminReviewUpdate() gin.HandlerFunc {
 			},
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
-
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 		result, err := movieCollection.UpdateOne(ctx, filter, update) // Обновления
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating movie"})
@@ -203,8 +205,8 @@ func AdminReviewUpdate() gin.HandlerFunc {
 }
 
 // Функция для получения оценки от ИИ а также его рейтинг
-func GetReviewRanking(adminReview string) (string, int, error) {
-	rankings, err := GetRankings() // Получаем все комментарии
+func GetReviewRanking(adminReview string,  client *mongo.Client, c *gin.Context) (string, int, error) {
+	rankings, err := GetRankings(client,c ) // Получаем все комментарии
 
 	if err != nil {
 		return "", 0, err
@@ -266,11 +268,13 @@ func GetReviewRanking(adminReview string) (string, int, error) {
 	return respose, rankVal, nil
 }
 
-func GetRankings() ([]models.Ranking, error) {
+func GetRankings(client *mongo.Client, c *gin.Context) ([]models.Ranking, error) {
 	var rankings []models.Ranking
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	ctx, cancel := context.WithTimeout(c, 100*time.Second)
 	defer cancel()
+
+	var rankingCollection *mongo.Collection = database.OpenCollection("rankings", client)
 
 	// Возвращаем все rankings из коллекции rankings
 	cursor, err := rankingCollection.Find(ctx, bson.M{}) // bson.M{} - не фильтрует коллекцию и возврщает все ranking
@@ -290,7 +294,7 @@ func GetRankings() ([]models.Ranking, error) {
 }
 
 // Функция для получение рекомендованных фильмов
-func GetRecomendedMovies() gin.HandlerFunc {
+func GetRecomendedMovies(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, err := utils.GetUserIdFromConetext(c)
 		if err != nil {
@@ -298,7 +302,7 @@ func GetRecomendedMovies() gin.HandlerFunc {
 			return
 		}
 
-		favourite_genrese, err := GetUserFavouriteGenres(userID)
+		favourite_genrese, err := GetUserFavouriteGenres(userID, client, c)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -325,10 +329,12 @@ func GetRecomendedMovies() gin.HandlerFunc {
 		findOpts.SetLimit(recommendedMoviesLimitVal)
 		filter := bson.M{"genre.genre_name": bson.M{"$in": favourite_genrese}}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
+		var movieCollection *mongo.Collection = database.OpenCollection("movies", client)
 		cursor, err := movieCollection.Find(ctx, filter, findOpts)
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching recomended movies"})
 			return
@@ -349,8 +355,8 @@ func GetRecomendedMovies() gin.HandlerFunc {
 }
 
 // Функция для получени предпочитаемыз жанров фильма
-func GetUserFavouriteGenres(userID string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+func GetUserFavouriteGenres(userID string, client *mongo.Client, c *gin.Context) ([]string, error) {
+	ctx, cancel := context.WithTimeout(c, 100*time.Second)
 	defer cancel()
 
 	filter := bson.M{ // документ, где поле user_id совпадает с переданным userID
@@ -364,7 +370,7 @@ func GetUserFavouriteGenres(userID string) ([]string, error) {
 
 	opts := options.FindOne().SetProjection(projection)
 	var result bson.M
-
+	 var userCollection *mongo.Collection = database.OpenCollection("users", client)
 	err := userCollection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {

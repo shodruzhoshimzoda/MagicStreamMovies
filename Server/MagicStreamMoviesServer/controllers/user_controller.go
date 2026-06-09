@@ -16,7 +16,6 @@ import (
 )
 
 // получаем коллекцию пользователей
-var userCollection *mongo.Collection = database.OpenCollection("users")
 
 // Фнукция для геренации хеша для паролья пользователья
 func HashPassword(password string) (string, error) {
@@ -30,7 +29,7 @@ func HashPassword(password string) (string, error) {
 }
 
 // Фнукция для регистрация пользователей
-func RegisterUser() gin.HandlerFunc {
+func RegisterUser(client  *mongo.Client) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
@@ -55,9 +54,10 @@ func RegisterUser() gin.HandlerFunc {
 				return 
 			}
 			
-		ctx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+		ctx, cancel := context.WithTimeout(c, 100 * time.Second)
 
 		defer cancel()
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
 
 
 		// Данная функция проверяет наличии уникальнсти электронной почты
@@ -94,7 +94,7 @@ func RegisterUser() gin.HandlerFunc {
 }
 
 // Функция для логирования пользователья
-func LogginUser() gin.HandlerFunc {
+func LogginUser(client  *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var userLoggin model.UserLoggin			// Создаём объект на основе структуры для логгирования	
 
@@ -104,10 +104,11 @@ func LogginUser() gin.HandlerFunc {
 			return 
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100 *time.Second)
+		ctx, cancel := context.WithTimeout(c, 100 *time.Second)
 		defer cancel()
 
 		var foundUser model.User
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
 
 		// Находим пользователья с таким же email, если нашли то декодируем наше значения в созданной структуре
 		err := userCollection.FindOne(ctx, bson.M{"email":userLoggin.Email}).Decode(&foundUser)
@@ -133,7 +134,7 @@ func LogginUser() gin.HandlerFunc {
 				return 
 			}
 
-		err = utils.UpdateAllTokens(foundUser.UserId, token, refreshToken)
+		err = utils.UpdateAllTokens(foundUser.UserId, token, refreshToken, client, c)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error":"failed to update http token"})

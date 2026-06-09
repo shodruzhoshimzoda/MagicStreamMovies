@@ -27,7 +27,6 @@ type SignedDetails struct {
 // Инициализация глобальных переменных для работы с безопасностью и базой данных
 var SECRET_KEY = os.Getenv("SECRET_KEY")                                // Секретный ключ для подписи основного токена (Access)
 var SECRET_REFRESH_KEY = os.Getenv("SECRET_REFRESH_KEY")                // Секретный ключ для подписи токена обновления (Refresh)
-var userCollection *mongo.Collection = database.OpenCollection("users") // Подключение к коллекции "users" в MongoDB
 
 // GenerateAllToken генерирует пару JWT-токенов: access (короткоживущий) и refresh (для обновления сессии).
 // Возвращает signedToken (строка), signedRefreshToken (строка) и ошибку (error), если она возникнет.
@@ -83,9 +82,9 @@ func GenerateAllToken(email, firstName, lastName, role, userId string) (string, 
 
 // UpdateAllTokens обновляет существующие токены пользователя в базе данных MongoDB.
 // На вход принимает id пользователя и обе строки сгенерированных токенов.
-func UpdateAllTokens(userId, token, refreshToken string) (err error) {
+func UpdateAllTokens(userId, token, refreshToken string, client  *mongo.Client, c *gin.Context) (err error) {
 	// Создаем контекст с таймаутом выполнения в 100 секунд, чтобы запрос к БД не завис вечно
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	ctx, cancel := context.WithTimeout(c, 100*time.Second)
 	defer cancel() // Гарантируем освобождение ресурсов контекста по завершении функции
 
 	// Форматируем текущее время создания/обновления записи в соответствии со стандартом RFC3339
@@ -99,6 +98,7 @@ func UpdateAllTokens(userId, token, refreshToken string) (err error) {
 			"update_at":     updateAt,     // Фиксируем время изменения записи
 		},
 	}
+	var userCollection *mongo.Collection = database.OpenCollection("users", client) // Подключение к коллекции "users" в MongoDB
 
 	// Выполняем операцию обновления одного документа в MongoDB, находя пользователя по его "user_id"
 	_, err = userCollection.UpdateOne(ctx, bson.M{"user_id": userId}, updateData)

@@ -25,7 +25,6 @@ import (
 
 // Берём коллекцию фильмов (таблицу)
 var validate = validator.New()
-
 //  Создаём структуру валидатора
 
 // Возвращает список фильмов
@@ -402,4 +401,35 @@ func GetUserFavouriteGenres(userID string, client *mongo.Client, c *gin.Context)
 
 	return genresName, nil
 
+}
+
+// Функция для получени жанров фильмов
+func GetGenres(client  *mongo.Client) gin.HandlerFunc  {
+	return  func(c *gin.Context) {
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		defer cancel()
+
+		var genre []models.Genre
+		
+		var genreCollection *mongo.Collection = database.OpenCollection("genres", client)
+
+		cursor, err := genreCollection.Find(ctx, bson.M{})
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error":"Error fetching genres"})
+			return 
+		}
+
+		defer cursor.Close(ctx)
+
+		// Добавляем полученные жанры в наш массив фильмов
+		if err := cursor.All(ctx, &genre); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error":"Error fetching movies"})
+			return 
+		}
+
+		c.JSON(http.StatusOK, genre)
+
+	}
 }

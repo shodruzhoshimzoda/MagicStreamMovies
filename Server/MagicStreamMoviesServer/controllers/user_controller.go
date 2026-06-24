@@ -35,7 +35,7 @@ func RegisterUser(client  *mongo.Client) gin.HandlerFunc {
 
 		var user model.User
 
-		if err := c.ShouldBind(&user); err != nil {
+		if err := c.ShouldBindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}

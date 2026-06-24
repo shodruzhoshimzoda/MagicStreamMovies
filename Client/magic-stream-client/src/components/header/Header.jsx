@@ -4,9 +4,12 @@ import Nav from "react-bootstrap/Nav"
 import Navbar from "react-bootstrap/Navbar"
 import {useNavigate, NavLink, Link} from 'react-router-dom'
 import { useState} from "react"
+import useAuth from "../../hook/useAuth"
+
+
 const Header = () => {
     const navigate = useNavigate();
-    const [auth, setAuth] = useState(false)
+    const {auth} = useAuth();
     return (
             <Navbar bg="dark" variant="dark" expand="lg" stick = "top" className="shadow-sm">
                     <Container>
@@ -28,7 +31,7 @@ const Header = () => {
                         {auth ?  (
                         <>
                             <span>
-                                Hello <strong>Name</strong>
+                                Hello <strong>{auth.first_name}</strong>
                             </span>
                             <Button variant="outline-light" size="sm">
                                 Logout

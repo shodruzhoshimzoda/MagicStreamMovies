@@ -16,14 +16,17 @@ type Ranking struct {
 
 // Фильмы
 type Movie struct {
-	ID     bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	ImdbID string        `bson:"imdb_id" json:"imdb_id" validate:"required"`
-	Title  string        `bson:"title" json:"title" validate:"required,min=2,max=500"`
-	//  Длина названия фильма не может быть меньше 2 и больще 500
-	PosterPath string `bson:"poster_path" json:"poster_path" valdate:"required,url"`
-	YouTubeId  string `bson:"youtube_id" json:"youtube_id" valdate:"required"`
+	ID          bson.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	ImdbID      string        `bson:"imdb_id" json:"imdb_id" validate:"required"`
+	Title       string        `bson:"title" json:"title" validate:"required,min=2,max=500"`
+	
+	// ИСПРАВЛЕНО: valdate -> validate. 
+	PosterPath  string        `bson:"poster_path" json:"poster_path" validate:"required,url"` 
+	
+	// ИСПРАВЛЕНО: valdate -> validate
+	YouTubeId   string        `bson:"youtube_id" json:"youtube_id" validate:"required"`
 
-	Genre       []Genre `bson:"genre" json:"genre" validate:"required,dive"`
-	AdminReview string  `bson:"admin_review" json:"admin_review"`
-	Ranking     Ranking `bson:"ranking" json:"ranking" validate:"required"`
+	Genre       []Genre       `bson:"genre" json:"genre" validate:"required,dive"`
+	AdminReview string        `bson:"admin_review" json:"admin_review"`
+	Ranking     Ranking       `bson:"ranking" json:"ranking" validate:"required"`
 }

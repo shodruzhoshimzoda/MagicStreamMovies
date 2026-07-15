@@ -43,8 +43,8 @@ func main() {
 	}
 	// Используем CORS для межсетегого соединения с другими портами
 	config := cors.Config{}
-	config.AllowAllOrigins = true
-	// config.AllowOrigins = origins
+	// config.AllowAllOrigins = true
+	config.AllowOrigins = origins
 	config.AllowMethods = []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"}
 	//config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}

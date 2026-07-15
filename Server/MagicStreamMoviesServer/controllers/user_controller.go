@@ -140,6 +140,25 @@ func LogginUser(client  *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error":"failed to update http token"})
 			return 
 		}
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name: "access_token",
+			Value: token,
+			Path: "/",
+			MaxAge: 86400, // 1 hour
+			Secure: true,
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+		})
+
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name: "refresh_token",
+			Value: refreshToken,
+			Path: "/",
+			MaxAge: 604800, // 1 week
+			Secure: true,
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+		})
 
 		c.JSON(http.StatusOK, model.UserResponse{
 			UserID: foundUser.UserId,
@@ -147,8 +166,8 @@ func LogginUser(client  *mongo.Client) gin.HandlerFunc {
 			FirstName: foundUser.FirstName,
 			LastName: foundUser.LastName,
 			Role: foundUser.Role,
-			Token: token,
-			RefeshToken: refreshToken,
+			// Token: token,
+			// RefeshToken: refreshToken,
 			FavouriteGenres: foundUser.FavouriteGenres,
 		},
 		)
